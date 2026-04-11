@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@theme {
+  /* Animations */
+  @keyframes shimmer {
+    0% { transform: translateX(-200%) skewX(-20deg); }
+    100% { transform: translateX(200%) skewX(-20deg); }
+  }
+  --animate-shimmer-fast: shimmer 3s infinite linear;
+
+  /* Font */
+  --font-sans: "Inter", "Outfit", ui-sans-serif, system-ui;
+
+  /* Custom Transitions */
+  --transition-smooth: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer base {
+  :root {
+    --bg-main: #F2F2F7;
+    --text-main: #0f172a;
+    --card-bg: rgba(255, 255, 255, 0.6);
+    --card-border: rgba(255, 255, 255, 0.4);
+    --input-bg: rgba(255, 255, 255, 0.8);
+    /* MikeAI Signature Gradient */
+    --brand-gradient: linear-gradient(to right, #b91c1c, #ea580c);
+  }
+
+  /* Dark Mode Overrides */
+  .dark {
+    --bg-main: #020617; /* Deepest Navy/Black */
+    --text-main: #f8fafc;
+    --card-bg: rgba(15, 23, 42, 0.8);
+    --card-border: rgba(51, 65, 85, 0.5);
+    --input-bg: rgba(30, 41, 59, 0.7);
+    --brand-gradient: linear-gradient(to right, #dc2626, #991b1b); /* Darker, stealthier red */
+  }
+
+  html {
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    @apply antialiased transition-colors duration-500;
+  }
+}
+
+@layer components {
+  /* Liquid Glass - Now Theme Aware */
+  .liquid-glass {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(24px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+    @apply rounded-[2.5rem] transition-all duration-500;
+  }
+
+  .dark .liquid-glass {
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  /* Buttons - Using your bg-linear preference */
+  .btn-brand {
+    background: var(--brand-gradient);
+    @apply text-white font-black py-3 px-8 
+           rounded-2xl transition-all duration-300 shadow-lg 
+           hover:brightness-110 hover:-translate-y-0.5 active:scale-95
+           uppercase text-[11px] tracking-widest;
+  }
+
+  /* Input Fields */
+  .input-field {
+    background-color: var(--input-bg);
+    border: 1px solid var(--card-border);
+    @apply w-full p-4 rounded-2xl text-sm font-bold
+           outline-none transition-all duration-300
+           focus:ring-2 focus:ring-red-500/20 focus:border-red-600;
+    color: var(--text-main);
+  }
+
+  /* Side Navigation */
+  .sidebar-link {
+    @apply flex items-center gap-4 px-6 py-4 rounded-2xl transition-all font-black text-[11px] uppercase tracking-widest;
+    color: #64748b; /* Slate-400 */
+  }
+
+  .dark .sidebar-link {
+    color: #94a3b8; /* Slate-400 dark */
+  }
+
+  .sidebar-link.active {
+    @apply bg-slate-900 text-white dark:bg-red-600 shadow-xl;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  
+  .text-balance { text-wrap: balance; }
+}
