@@ -4,13 +4,24 @@ const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 
-const serviceAccount = require('../serviceAccountKey.json');
+// --- SECURE FIREBASE INITIALIZATION ---
+let serviceAccount;
+
+if (process.env.NODE_ENV === 'production') {
+    // Safely parse credentials from Render's environment variables
+    serviceAccount = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+} else {
+    // Fallback for local development on your MacBook Air
+    serviceAccount = require('../serviceAccountKey.json');
+}
+
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
 }
 
+// --- UTILITIES & CONFIGURATIONS ---
 const formatUserResponse = (user) => ({
     id: user._id,
     name: user.name,
@@ -22,14 +33,15 @@ const formatUserResponse = (user) => ({
 
 const cookieOptions = {
     httpOnly: true,
-    secure: false, 
-    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production', // true in production for HTTPS
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // cross-site cookies for render -> vercel
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
 const test = (req, res) => res.json('MikeAI Neural Link: Active');
 
+// --- AUTHENTICATION CONTROLLERS ---
 const registerUser = async (req, res) => {
     try {
         const { name, email, password, giftCode } = req.body;
@@ -129,15 +141,14 @@ const updateProfile = async (req, res) => {
         try {
             const { name, profile } = req.body;
             
-            // Find user and update
             const updatedUser = await User.findByIdAndUpdate(
                 userData.id,
                 { 
                     name: name,
-                    profile: profile, // This includes photo and role from the frontend
+                    profile: profile,
                     onboarded: true 
                 },
-                { new: true } // Returns the newly updated document
+                { new: true }
             );
             
             res.json(formatUserResponse(updatedUser));
@@ -148,7 +159,7 @@ const updateProfile = async (req, res) => {
     });
 };
 
-// --- REQUEST password RESET ---
+// --- REQUEST PASSWORD RESET ---
 const forgotPassword = async (req, res) => {
     const { email } = req.body;
     
@@ -156,13 +167,10 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.json({ error: 'No account found with this email' });
 
-        // 1. Generate the token FIRST
         const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
-
-        // 2. Create the link SECOND (Now it can use resetToken)
         const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-        // 3. Create the template THIRD (Now it can use resetLink)
+        // Uses crisp bg-linear CSS alternative for email clients
         const emailTemplate = `
         <!DOCTYPE html>
         <html>
@@ -177,6 +185,7 @@ const forgotPassword = async (req, res) => {
                 .button { 
                     display: inline-block; 
                     padding: 18px 36px; 
+                    background: #b91c1c;
                     background: linear-gradient(to right, #b91c1c, #ea580c); 
                     color: #ffffff !important; 
                     text-decoration: none; 
@@ -268,7 +277,6 @@ const deleteAccount = async (req, res) => {
     });
 };
 
-// Make sure forgotPassword and resetPassword are in the exports!
 module.exports = { 
     test, 
     registerUser, 
