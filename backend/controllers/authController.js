@@ -9,21 +9,29 @@ let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
     try {
-        // Handle environment variable credentials, accounting for literal newlines in private key
         const credString = process.env.GOOGLE_CREDS_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
         if (!credString) {
             throw new Error('GOOGLE_CREDS_JSON or FIREBASE_SERVICE_ACCOUNT not set');
         }
-        // Replace actual newlines with escaped newlines for proper JSON parsing
-        const sanitized = credString.replace(/\n/g, '\\n');
-        serviceAccount = JSON.parse(sanitized);
+        
+        // Render passes the string with escaped newlines. We convert them to 
+        // real newlines ONLY where JSON.parse requires it, avoiding character breakage.
+        const normalizedJsonString = credString.trim().replace(/\\n/g, '\n');
+        
+        serviceAccount = JSON.parse(normalizedJsonString);
     } catch (error) {
         console.error('Firebase credentials parse error:', error.message);
-        throw new Error('Failed to initialize Firebase credentials');
+        throw new Error('Failed to initialize Firebase credentials: ' + error.message);
     }
 } else {
     // Fallback for local development on your MacBook Air
     serviceAccount = require('../serviceAccountKey.json');
+}
+
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+    });
 }
 
 if (!admin.apps.length) {
