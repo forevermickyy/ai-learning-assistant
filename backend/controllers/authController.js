@@ -4,14 +4,18 @@ const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 
-const serviceAccount = require('../serviceAccountKey.json');
+// const serviceAccount = require('../serviceAccountKey.json');
+// No more require() statement needed for the JSON file!
+
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert({
             projectId: process.env.FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            // Replace escaped newlines from Render's dashboard config
-            privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+            // Automatically fixes the newline characters in the environment variable string
+            privateKey: process.env.FIREBASE_PRIVATE_KEY 
+                ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') 
+                : undefined,
         })
     });
 }
