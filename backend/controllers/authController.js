@@ -9,16 +9,25 @@ let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
     try {
-        const credString = process.env.GOOGLE_CREDS_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
+        let credString = process.env.GOOGLE_CREDS_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
         if (!credString) {
             throw new Error('GOOGLE_CREDS_JSON or FIREBASE_SERVICE_ACCOUNT not set');
         }
-        
-        // Render passes the string with escaped newlines. We convert them to 
-        // real newlines ONLY where JSON.parse requires it, avoiding character breakage.
-        const normalizedJsonString = credString.trim().replace(/\\n/g, '\n');
-        
-        serviceAccount = JSON.parse(normalizedJsonString);
+
+        // 1. Clean up any weird outer whitespace or formatting
+        credString = credString.trim();
+
+        // 2. If Render swallowed the raw newlines, escape them cleanly so JSON.parse doesn't choke on control characters
+        // This targets any true newlines that aren't preceded by an existing backslash
+        const sanitizedJsonString = credString.replace(/(?<!\\)\n/g, '\\n');
+
+        serviceAccount = JSON.parse(sanitizedJsonString);
+
+        // 3. Ensure the nested private_key itself correctly retains its true line breaks for the Firebase SDK
+        if (serviceAccount.private_key) {
+            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+        }
+
     } catch (error) {
         console.error('Firebase credentials parse error:', error.message);
         throw new Error('Failed to initialize Firebase credentials: ' + error.message);
@@ -26,12 +35,6 @@ if (process.env.NODE_ENV === 'production') {
 } else {
     // Fallback for local development on your MacBook Air
     serviceAccount = require('../serviceAccountKey.json');
-}
-
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
 }
 
 if (!admin.apps.length) {
