@@ -8,13 +8,22 @@ const nodemailer = require('nodemailer');
 let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
-    // Generate object literal to sidestep cloud environment string JSON.parse failures entirely
+    // Read individual values directly to bypass JSON string parsing issues entirely
+    
+    // Normalize the private key string to handle all cloud environment quirks
+    let rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+    if (rawPrivateKey) {
+        // Strip out any accidental wrapping quotes added by the shell environment
+        rawPrivateKey = rawPrivateKey.trim().replace(/^["']|["']$/g, '');
+        // Force replace literal '\\n' text combinations into actual operational string newlines
+        rawPrivateKey = rawPrivateKey.replace(/\\n/g, '\n');
+    }
+
     serviceAccount = {
         type: "service_account",
         project_id: process.env.FIREBASE_PROJECT_ID,
         private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-        // Properly formats raw escaped sequences within environment context back into line breaks
-        private_key: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+        private_key: rawPrivateKey,
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
         client_id: process.env.FIREBASE_CLIENT_ID,
         auth_uri: "https://accounts.google.com/o/oauth2/auth",
@@ -24,13 +33,13 @@ if (process.env.NODE_ENV === 'production') {
         universe_domain: "googleapis.com"
     };
 
-    // Quick runtime diagnostics sanity check
+    // Quick structural safety guard
     if (!serviceAccount.private_key || !serviceAccount.client_email) {
-        console.error("❌ CRITICAL ERROR: Distributed production Firebase variables are unassigned on Render!");
+        console.error("❌ CRITICAL ERROR: Firebase production variables are missing on Render env dashboard!");
         process.exit(1);
     }
 } else {
-    // Fallback for local development execution environments
+    // Fallback for local development on your MacBook Air
     serviceAccount = require('../serviceAccountKey.json');
 }
 
