@@ -26,37 +26,39 @@ mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log('Neural Database Connected'))
   .catch((err) => console.error('DB Connection Error:', err.message));
 
-// --- NEW CORS APPROACH: DECLARATIVE STATIC/REGEX MATCHING WITH PREFLIGHT INSURANCE ---
-const productionOrigin = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.trim().replace(/\/$/, "") : "";
+// --- FIXED & ROBUST CORS ENFORCEMENT MATRIX ---
+const allowedOrigins = [
+    'https://ai-learning-assistant-three-nu.vercel.app', // Hardcoded fallback insurance
+    'http://localhost:5173',                             // Vite Local development
+    'http://localhost:3000'                              // Alternative local dev
+];
+
+// Cleanly capture process.env variable if it exists safely
+if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL.trim().replace(/\/$/, ""));
+}
 
 app.use(cors({
     origin: function (origin, callback) {
-        // 1. Allow server-to-server, mobile requests, or local diagnostics (no origin header)
+        // Allow requests with no origin (like mobile apps, curl health checks, or postman)
         if (!origin) return callback(null, true);
         
-        // 2. Exact match against your production dashboard variable
-        if (productionOrigin && origin === productionOrigin) {
+        if (allowedOrigins.includes(origin)) {
             return callback(null, true);
+        } else {
+            console.warn(`⚠️ CORS Blocked Origin: ${origin}`);
+            return callback(new Error('Not allowed by CORS policy'));
         }
-        
-        // 3. Fallback regex to capture localhost dev variations perfectly
-        if (/^http:\/\/localhost:(5173|3000)$/.test(origin)) {
-            return callback(null, true);
-        }
-        
-        // Block untrusted spaces
-        console.warn(`⚠️ CORS Refused Link Access: ${origin}`);
-        return callback(new Error('Blocked by system CORS enforcement security configuration'));
     },
-    credentials: true,
+    credentials: true, // Crucial for passing authorization cookies across origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
-// Explicit Preflight Overhaul to ensure browser handshakes (OPTIONS) never fallback or drop headers
-app.options('*', (req, res) => {
+// ✅ FIXED syntax for Express 5 wildcard parameter matching
+app.options('(.*)', (req, res) => {
     const origin = req.headers.origin;
-    if (origin === productionOrigin || /^http:\/\/localhost:(5173|3000)$/.test(origin)) {
+    if (allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
@@ -64,7 +66,6 @@ app.options('*', (req, res) => {
     }
     res.sendStatus(200);
 });
-
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
