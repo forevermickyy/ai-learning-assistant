@@ -8,12 +8,12 @@ const nodemailer = require('nodemailer');
 let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
-    // Read individual values directly to bypass JSON string parsing issues entirely
+    // Generate object literal to sidestep cloud environment string JSON.parse failures entirely
     serviceAccount = {
         type: "service_account",
         project_id: process.env.FIREBASE_PROJECT_ID,
         private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-        // Cleans up the formatting of the multi-line private key seamlessly
+        // Properly formats raw escaped sequences within environment context back into line breaks
         private_key: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
         client_id: process.env.FIREBASE_CLIENT_ID,
@@ -24,13 +24,13 @@ if (process.env.NODE_ENV === 'production') {
         universe_domain: "googleapis.com"
     };
 
-    // Quick structural safety guard
+    // Quick runtime diagnostics sanity check
     if (!serviceAccount.private_key || !serviceAccount.client_email) {
-        console.error("❌ CRITICAL ERROR: Firebase production variables are missing on Render env dashboard!");
+        console.error("❌ CRITICAL ERROR: Distributed production Firebase variables are unassigned on Render!");
         process.exit(1);
     }
 } else {
-    // Fallback for local development on your MacBook Air
+    // Fallback for local development execution environments
     serviceAccount = require('../serviceAccountKey.json');
 }
 
@@ -52,8 +52,8 @@ const formatUserResponse = (user) => ({
 
 const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // true in production for HTTPS
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // cross-site cookies for render -> vercel
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000
 };
@@ -189,7 +189,6 @@ const forgotPassword = async (req, res) => {
         const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
         const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-        // Uses crisp bg-linear CSS alternative for email clients
         const emailTemplate = `
         <!DOCTYPE html>
         <html>
