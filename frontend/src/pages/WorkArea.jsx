@@ -25,10 +25,10 @@ const WorkArea = ({ activeLab, onExit, user, openChat }) => {
   formData.append('modelType', modelType);
 
   try {
-    const response = await fetch('http://localhost:8000/api/chat', {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await fetch('/api/chat', {
+  method: 'POST',
+  body: formData,
+});
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();

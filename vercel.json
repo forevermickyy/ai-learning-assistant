@@ -12,7 +12,11 @@
   },
   "rewrites": [
     {
-      "source": "/((?!_\\/backend).*)" ,
+      "source": "/api/:path*",
+      "destination": "https://ai-learning-assistant-aunn.onrender.com/api/:path*"
+    },
+    {
+      "source": "/((?!_\\/backend|api).*)",
       "destination": "/index.html"
     }
   ]

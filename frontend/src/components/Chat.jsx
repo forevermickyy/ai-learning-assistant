@@ -68,15 +68,15 @@ const Chat = ({ isOpen, onClose }) => {
     setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
     try {
-      const response = await fetch('http://localhost:8000/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: textToSend, 
-          profile: user?.profile || {},
-          modelType: modelType
-        }),
-      });
+      const response = await fetch('/api/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    prompt: textToSend, 
+    profile: user?.profile || {},
+    modelType: modelType
+  }),
+});
 
       if (!response.body) throw new Error("MikeAi link failed.");
 
