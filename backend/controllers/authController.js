@@ -8,29 +8,26 @@ const nodemailer = require('nodemailer');
 let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
-    try {
-        let credString = process.env.GOOGLE_CREDS_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
-        if (!credString) {
-            throw new Error('GOOGLE_CREDS_JSON or FIREBASE_SERVICE_ACCOUNT not set');
-        }
+    // Read individual values directly to bypass JSON string parsing issues entirely
+    serviceAccount = {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        // Cleans up the formatting of the multi-line private key seamlessly
+        private_key: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: process.env.FIREBASE_CLIENT_ID,
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+        universe_domain: "googleapis.com"
+    };
 
-        // 1. Clean up any weird outer whitespace or formatting
-        credString = credString.trim();
-
-        // 2. If Render swallowed the raw newlines, escape them cleanly so JSON.parse doesn't choke on control characters
-        // This targets any true newlines that aren't preceded by an existing backslash
-        const sanitizedJsonString = credString.replace(/(?<!\\)\n/g, '\\n');
-
-        serviceAccount = JSON.parse(sanitizedJsonString);
-
-        // 3. Ensure the nested private_key itself correctly retains its true line breaks for the Firebase SDK
-        if (serviceAccount.private_key) {
-            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-        }
-
-    } catch (error) {
-        console.error('Firebase credentials parse error:', error.message);
-        throw new Error('Failed to initialize Firebase credentials: ' + error.message);
+    // Quick structural safety guard
+    if (!serviceAccount.private_key || !serviceAccount.client_email) {
+        console.error("❌ CRITICAL ERROR: Firebase production variables are missing on Render env dashboard!");
+        process.exit(1);
     }
 } else {
     // Fallback for local development on your MacBook Air
