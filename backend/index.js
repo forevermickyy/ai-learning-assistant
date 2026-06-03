@@ -14,36 +14,57 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Core AI Clients
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const groq = new OpenAI({ apiKey: process.env.GROQ_API_KEY });
+
+// Configured base URL so the OpenAI SDK routes traffic cleanly to Groq
+const groq = new OpenAI({ 
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1" 
+});
 
 // Database connection
 mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log('Neural Database Connected'))
   .catch((err) => console.error('DB Connection Error:', err.message));
 
-// Middleware
-const allowedOrigins = [
-    process.env.FRONTEND_URL,      
-    'http://localhost:5173',          
-    'http://localhost:3000'            
-];
+// --- NEW CORS APPROACH: DECLARATIVE STATIC/REGEX MATCHING WITH PREFLIGHT INSURANCE ---
+const productionOrigin = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.trim().replace(/\/$/, "") : "";
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, curl, or postman)
+        // 1. Allow server-to-server, mobile requests, or local diagnostics (no origin header)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.includes(origin)) {
+        // 2. Exact match against your production dashboard variable
+        if (productionOrigin && origin === productionOrigin) {
             return callback(null, true);
-        } else {
-            console.warn(`⚠️ CORS Blocked Origin: ${origin}`);
-            return callback(new Error('Not allowed by CORS policy'));
         }
+        
+        // 3. Fallback regex to capture localhost dev variations perfectly
+        if (/^http:\/\/localhost:(5173|3000)$/.test(origin)) {
+            return callback(null, true);
+        }
+        
+        // Block untrusted spaces
+        console.warn(`⚠️ CORS Refused Link Access: ${origin}`);
+        return callback(new Error('Blocked by system CORS enforcement security configuration'));
     },
-    credentials: true, // Allows secure HttpOnly cookies/sessions to pass across origins
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
+
+// Explicit Preflight Overhaul to ensure browser handshakes (OPTIONS) never fallback or drop headers
+app.options('*', (req, res) => {
+    const origin = req.headers.origin;
+    if (origin === productionOrigin || /^http:\/\/localhost:(5173|3000)$/.test(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    res.sendStatus(200);
+});
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
@@ -97,8 +118,12 @@ app.post("/api/chat", upload.single('file'), async (req, res) => {
     });
 
     for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      try {
+        const text = chunk.text();
+        if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      } catch (e) {
+         // Gracefully skip empty structural meta chunks
+      }
     }
   };
 
@@ -107,7 +132,7 @@ app.post("/api/chat", upload.single('file'), async (req, res) => {
     if (modelType === 'groq') {
       console.log(">>> ROUTING: Groq Llama3 70b");
       const stream = await groq.chat.completions.create({
-        model: "llama3-70b",
+        model: "llama3-70b-8192", 
         messages: [
           { role: "system", content: `You are MikeAI. Role: ${parsedProfile?.role || 'User'}` },
           { role: "user", content: prompt + (userParts[0]?.text || "") }
