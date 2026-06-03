@@ -26,7 +26,7 @@ mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log('Neural Database Connected'))
   .catch((err) => console.error('DB Connection Error:', err.message));
 
-// --- FIXED & ROBUST CORS ENFORCEMENT MATRIX ---
+// --- ROBUST CORS ENFORCEMENT MATRIX ---
 const allowedOrigins = [
     'https://ai-learning-assistant-three-nu.vercel.app', // Hardcoded fallback insurance
     'http://localhost:5173',                             // Vite Local development
@@ -52,20 +52,14 @@ app.use(cors({
     },
     credentials: true, // Crucial for passing authorization cookies across origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    optionsSuccessStatus: 200 // Responds cleanly to legacy browsers on OPTIONS preflights
 }));
 
-// ✅ FIXED syntax for Express 5 wildcard parameter matching
-app.options('(.*)', (req, res) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-    }
-    res.sendStatus(200);
-});
+// (NOTE: The problematic app.options block has been completely deleted from here)
+
+app.use(express.json());
+app.use(cookieParser());
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
