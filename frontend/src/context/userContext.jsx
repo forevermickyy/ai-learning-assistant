@@ -3,8 +3,9 @@ import { createContext, useState, useEffect } from 'react';
 import { auth } from '../firebase'; 
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 
+// Dynamic selection based on your hosting environment context
 export const API = axios.create({
-    baseURL: 'http://localhost:8000',
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
     withCredentials: true
 });
 
@@ -39,16 +40,12 @@ export function UserContextProvider({children}) {
 
     useEffect(() => {
         // Step 2: Sync Auth State
-        // Check local backend session immediately
         fetchProfile();
 
         // Listen for Firebase changes (e.g., Google login redirects)
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
             if (firebaseUser) {
                 fetchProfile();
-            } else {
-                // If Firebase has no user, we still wait for the 
-                // fetchProfile() in the initial load to finish setting ready.
             }
         });
 
