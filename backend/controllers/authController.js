@@ -8,8 +8,19 @@ const nodemailer = require('nodemailer');
 let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
-    // Safely parse credentials from Render's environment variables
-    serviceAccount = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+    try {
+        // Handle environment variable credentials, accounting for literal newlines in private key
+        const credString = process.env.GOOGLE_CREDS_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
+        if (!credString) {
+            throw new Error('GOOGLE_CREDS_JSON or FIREBASE_SERVICE_ACCOUNT not set');
+        }
+        // Replace actual newlines with escaped newlines for proper JSON parsing
+        const sanitized = credString.replace(/\n/g, '\\n');
+        serviceAccount = JSON.parse(sanitized);
+    } catch (error) {
+        console.error('Firebase credentials parse error:', error.message);
+        throw new Error('Failed to initialize Firebase credentials');
+    }
 } else {
     // Fallback for local development on your MacBook Air
     serviceAccount = require('../serviceAccountKey.json');
