@@ -4,52 +4,13 @@ const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 
-// --- SECURE FIREBASE INITIALIZATION ---
-let serviceAccount;
-
-if (process.env.NODE_ENV === 'production') {
-    let rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-    
-    if (rawPrivateKey) {
-        rawPrivateKey = rawPrivateKey.trim().replace(/^["']|["']$/g, '');
-        
-        // If the key is Base64 encoded, decode it securely back to original PEM formatting
-        if (!rawPrivateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-            rawPrivateKey = Buffer.from(rawPrivateKey, 'base64').toString('utf8');
-        } else {
-            rawPrivateKey = rawPrivateKey.replace(/\\n/g, '\n');
-        }
-    }
-
-    serviceAccount = {
-        type: "service_account",
-        project_id: process.env.FIREBASE_PROJECT_ID,
-        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-        private_key: rawPrivateKey,
-        client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        client_id: process.env.FIREBASE_CLIENT_ID,
-        auth_uri: "https://accounts.google.com/o/oauth2/auth",
-        token_uri: "https://oauth2.googleapis.com/token",
-        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
-        universe_domain: "googleapis.com"
-    };
-
-    if (!serviceAccount.private_key || !serviceAccount.client_email) {
-        console.error("❌ CRITICAL ERROR: Firebase production variables are missing on Render env dashboard!");
-        process.exit(1);
-    }
-} else {
-    serviceAccount = require('../serviceAccountKey.json');
-}
-
+const serviceAccount = require('../serviceAccountKey.json');
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
 }
 
-// --- UTILITIES & CONFIGURATIONS ---
 const formatUserResponse = (user) => ({
     id: user._id,
     name: user.name,
@@ -62,14 +23,13 @@ const formatUserResponse = (user) => ({
 const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', 
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
 const test = (req, res) => res.json('MikeAI Neural Link: Active');
 
-// --- AUTHENTICATION CONTROLLERS ---
 const registerUser = async (req, res) => {
     try {
         const { name, email, password, giftCode } = req.body;
@@ -169,14 +129,15 @@ const updateProfile = async (req, res) => {
         try {
             const { name, profile } = req.body;
             
+            // Find user and update
             const updatedUser = await User.findByIdAndUpdate(
                 userData.id,
                 { 
                     name: name,
-                    profile: profile,
+                    profile: profile, // This includes photo and role from the frontend
                     onboarded: true 
                 },
-                { new: true }
+                { new: true } // Returns the newly updated document
             );
             
             res.json(formatUserResponse(updatedUser));
@@ -187,7 +148,7 @@ const updateProfile = async (req, res) => {
     });
 };
 
-// --- REQUEST PASSWORD RESET ---
+// --- REQUEST password RESET ---
 const forgotPassword = async (req, res) => {
     const { email } = req.body;
     
@@ -195,9 +156,13 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) return res.json({ error: 'No account found with this email' });
 
+        // 1. Generate the token FIRST
         const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+
+        // 2. Create the link SECOND (Now it can use resetToken)
         const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
+        // 3. Create the template THIRD (Now it can use resetLink)
         const emailTemplate = `
         <!DOCTYPE html>
         <html>
@@ -212,7 +177,6 @@ const forgotPassword = async (req, res) => {
                 .button { 
                     display: inline-block; 
                     padding: 18px 36px; 
-                    background: #b91c1c;
                     background: linear-gradient(to right, #b91c1c, #ea580c); 
                     color: #ffffff !important; 
                     text-decoration: none; 
@@ -304,6 +268,7 @@ const deleteAccount = async (req, res) => {
     });
 };
 
+// Make sure forgotPassword and resetPassword are in the exports!
 module.exports = { 
     test, 
     registerUser, 
