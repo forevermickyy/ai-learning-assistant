@@ -8,15 +8,17 @@ const nodemailer = require('nodemailer');
 let serviceAccount;
 
 if (process.env.NODE_ENV === 'production') {
-    // Read individual values directly to bypass JSON string parsing issues entirely
-    
-    // Normalize the private key string to handle all cloud environment quirks
     let rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+    
     if (rawPrivateKey) {
-        // Strip out any accidental wrapping quotes added by the shell environment
         rawPrivateKey = rawPrivateKey.trim().replace(/^["']|["']$/g, '');
-        // Force replace literal '\\n' text combinations into actual operational string newlines
-        rawPrivateKey = rawPrivateKey.replace(/\\n/g, '\n');
+        
+        // If the key is Base64 encoded, decode it securely back to original PEM formatting
+        if (!rawPrivateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+            rawPrivateKey = Buffer.from(rawPrivateKey, 'base64').toString('utf8');
+        } else {
+            rawPrivateKey = rawPrivateKey.replace(/\\n/g, '\n');
+        }
     }
 
     serviceAccount = {
@@ -33,13 +35,11 @@ if (process.env.NODE_ENV === 'production') {
         universe_domain: "googleapis.com"
     };
 
-    // Quick structural safety guard
     if (!serviceAccount.private_key || !serviceAccount.client_email) {
         console.error("❌ CRITICAL ERROR: Firebase production variables are missing on Render env dashboard!");
         process.exit(1);
     }
 } else {
-    // Fallback for local development on your MacBook Air
     serviceAccount = require('../serviceAccountKey.json');
 }
 
